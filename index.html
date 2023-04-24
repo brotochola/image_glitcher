@@ -1,0 +1,279 @@
+<html>
+
+<head>
+    <style>
+        #canvas {
+            border: 1px solid gray;
+        }
+
+        * {
+            margin: 0
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="canvas" onclick="clickOnCanvas(event)" crossDomain="null" width="400" height="400">
+
+    </canvas>
+    <button onclick="loadImage()">load</button>
+    <button onclick="doPixelStuff()">do pixel stuff</button>
+    <div id="gen">0</div>
+
+    <p>continuous:<input id="continuous" type="checkbox" /></p>
+
+    <script>
+        let ctx;
+        let gen = 0
+        let canvas
+        let colorData = []
+        let nextGen = []
+        document.body.onload = e => {
+            canvas = document.querySelector("#canvas")
+            ctx = canvas.getContext("2d", { willReadFrequently: true })
+
+
+
+            loadImage()
+
+        }
+
+        function getPx(x, y) {
+            try { return colorData[y][x] } catch (e) { return null }
+        }
+
+        function getNeighbours(px) {
+            let ret = {
+                nw: getPx(px.pos.x - 1, px.pos.y - 1),
+                n: getPx(px.pos.x, px.pos.y - 1),
+                ne: getPx(px.pos.x + 1, px.pos.y - 1),
+
+                w: getPx(px.pos.x - 1, px.pos.y),
+                e: getPx(px.pos.x + 1, px.pos.y),
+
+
+                sw: getPx(px.pos.x - 1, px.pos.y + 1),
+                s: getPx(px.pos.x, px.pos.y + 1),
+                se: getPx(px.pos.x + 1, px.pos.y + 1),
+
+            }
+            return ret
+
+        }
+
+        function clickOnCanvas(e) {
+
+            let px = getPx(e.x, e.y)
+
+            drawPixel({ ...px, g: 0 })
+            console.log(e.x, e.y, px, getNeighbours(px))
+
+        }
+
+        function doRules(px) {
+
+            // debugger
+            if (!(px || {}).pos) {
+                return px
+            }
+            if (!Array.isArray(nextGen[px.pos.y])) {
+                nextGen[px.pos.y] = []
+            }
+            let neighbours = getNeighbours(px)
+
+            let avg = (px.r + px.g + px.b) / 3
+
+            let changed = false
+
+            if (neighbours.n && neighbours.n.g > px.g) {
+                nextGen[px.pos.y][px.pos.x] = { ...px, r: px.r * 1.01 }
+                changed = true
+            }
+
+            if (neighbours.s && neighbours.s.r > px.r) {
+                nextGen[px.pos.y][px.pos.x] = { ...px, g: px.g * 0.99 }
+                changed = true
+            }
+
+            if (neighbours.ne && neighbours.sw && neighbours.ne.b > neighbours.sw.b) {
+                nextGen[px.pos.y][px.pos.x] = { ...px, b: px.b * 0.98, r: (neighbours.ne.r + px.r) / 2 }
+                changed = true
+
+            }
+
+            if (neighbours.e && getAvg(neighbours.e) > avg) {
+                //if the pixel at its left is brighter
+                nextGen[px.pos.y][px.pos.x] = { ...px, r: px.r * 1.05, g: px.g * 0.99, b: px.b * 0.99 }
+                changed = true
+            }
+
+            if (neighbours.s && neighbours.n && getAvg(neighbours.s) < avg) {
+                //if the pixel at its left is brighter
+                nextGen[px.pos.y][px.pos.x] = {
+                    ...px,
+                    g: neighbours.n.g,
+                    r: neighbours.n.r,
+                    b: neighbours.n.b
+                }
+                changed = true
+            }
+
+            if (neighbours.e && neighbours.w && getAvg(neighbours.e) < getAvg(neighbours.w)) {
+                //if the pixel at its left is brighter
+                nextGen[px.pos.y][px.pos.x] = {
+                    ...px,
+                    r: px.r * 0.99,
+
+                }
+                changed = true
+            }
+
+
+
+            // if (neighbours.n && neighbours.s && neighbours.w && neighbours.e) {
+
+            //     let avgNS = (getAvg(neighbours.n) + getAvg(neighbours.s)) / 2
+
+            //     let avgWE = (getAvg(neighbours.e) + getAvg(neighbours.e)) / 2
+
+
+            //     if (avg > avgNS) {
+            //         nextGen[px.pos.y][px.pos.x] = { ...px, r: px.r * 0.9, g: px.r * 0.9, b: px.b * 0.9 }
+            //         changed = true
+            //     }
+
+            //     if (avgWE > avgNS) {
+
+            //         nextGen[px.pos.y][px.pos.x] = {
+            //             ...px, r: (px.r + (avgWE + avgNS) / 2) / 2,
+            //             g: (px.g + avgNS) / 2,
+            //             b: (px.b + avgWE) / 2
+            //         }
+            //         changed = true
+            //     }
+
+            // }
+
+
+            // if (neighbours.s && neighbours.n && getAvg(neighbours.n) > getAvg(neighbours.s)) {
+            //     //if the pixel at its left is brighter
+            //     nextGen[px.pos.y][px.pos.x] = { ...px, r: px.r * 1.1 }
+
+            //     changed = true
+            // } else {
+            //     nextGen[px.pos.y][px.pos.x] = {
+            //         ...px,
+            //         r: (px.r + avg) / 2,
+            //         g: (px.g + avg) / 2,
+            //         b: (px.b + avg) / 2
+            //     }
+
+            //     changed = true
+            // }
+
+
+
+
+            if (!changed) nextGen[px.pos.y][px.pos.x] = { ...px }
+
+            return nextGen[px.pos.y][px.pos.x]
+        }
+
+        function getAvg(px) {
+            return (px.r + px.g + px.b) / 3
+        }
+
+
+
+        function drawPixel(px) {
+            var roundedX = Math.round(px.pos.x);
+            var roundedY = Math.round(px.pos.y);
+            let rgba = 'rgba(' + px.r + ',' + px.g + ',' + px.b + ',' + px.a + ')';
+            // console.log(rgba)
+            ctx.fillStyle = rgba
+            ctx.fillRect(roundedX, roundedY, 1, 1);
+        }
+
+
+        function getNexGeneration() {
+            // console.log("started", performance.now())
+            gen++
+            document.querySelector("#gen").innerHTML = gen
+            nextGen = []
+            for (let i = 0; i < canvas.width; i++) {
+                for (let j = 0; j < canvas.height; j++) {
+                    let px = getPx(j, i)
+                    let newPx = doRules(px)
+                    // console.log(i, j, px, newPx)
+                    drawPixel(newPx)
+                }
+            }
+
+
+            // for (let i = 0; i < canvas.width; i++) {
+            //     for (let j = 0; j < canvas.height; j++) {
+            //         let nextGenPx = nextGen[j, i]
+            //         if (nextGenPx && (nextGen || {}).pos) drawPixel(nextGenPx)
+            //     }
+            // }
+            colorData = JSON.parse(JSON.stringify(nextGen))
+
+            // console.log("finished", performance.now())
+            if (document.querySelector("#continuous").checked) requestAnimationFrame(e => getNexGeneration())
+        }
+
+        function doPixelStuff() {
+
+
+            getNexGeneration()
+
+        }
+
+
+
+
+        function getPixelData() {
+            for (let i = 0; i < canvas.width; i++) {
+                colorData[i] = []
+                for (let j = 0; j < canvas.height; j++) {
+                    let point = ctx.getImageData(j, i, 1, 1);
+                    let r = point.data[0]
+                    let g = point.data[1]
+                    let b = point.data[2]
+                    let a = point.data[3]
+                    colorData[i][j] = { r, g, b, a, pos: { x: j, y: i } }
+
+                }
+            }
+
+        }
+
+
+        function loadImage() {
+            if (ctx) {
+
+
+
+
+                //Loading of the home test image - img1
+                var img1 = new Image();
+
+                //drawing of the test image - img1
+                img1.onload = function () {
+                    //draw background image
+                    ctx.drawImage(img1, 0, 0);
+                    //draw a box over the top
+                    // ctx.fillStyle = "rgba(200, 0, 0, 0.5)";
+                    // ctx.fillRect(0, 0, 500, 500);
+                    getPixelData()
+
+                };
+                img1.crossOrigin = "null";
+
+                img1.src = '1.jpg?bla=' + Math.random() * 100;
+
+            }
+        }
+    </script>
+</body>
